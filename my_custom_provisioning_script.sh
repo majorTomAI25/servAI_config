@@ -1,12 +1,12 @@
 #!/bin/bash
 
-echo "Iniciando meu script de provisionamento personalizado..."
+echo "Iniciando script de provisionamento personalizado..."
 
 cd /workspace
 
 # --- 1. Verificação e Ativação do Ambiente Python (Crucial!) ---
 # A imagem Vast.ai/comfy geralmente usa Conda.
-# Vamos tentar detectar o ambiente ComfyUI corretamente.
+# tentar detectar o ambiente ComfyUI corretamente.
 
 CONDA_BASE_PATH=$(conda info --base 2>/dev/null)
 if [ -n "$CONDA_BASE_PATH" ]; then
@@ -47,7 +47,7 @@ pip autoremove -y # Remove pacotes que não são mais necessários por nenhum pa
 echo "Limpeza de dependências concluída."
 
 
-# --- 2. Instalação de Ferramentas Adicionais (Resto do seu script, sem alterações) ---
+# --- 2. Instalação de Ferramentas Adicionais  ---
 
 # 2.1. Wav2Lip (para Lip Sync)
 echo "Instalando Wav2Lip..."
@@ -71,12 +71,12 @@ echo "Bibliotecas Sonic instaladas."
 echo "Configurando VideoHelpSuite..."
 VIDEO_TOOLS_DIR="/workspace/video_help_suite"
 mkdir -p "$VIDEO_TOOLS_DIR"
-# Aqui você pode copiar seus scripts personalizados para dentro de $VIDEO_TOOLS_DIR.
+# copiar seus scripts personalizados para dentro de $VIDEO_TOOLS_DIR.
 # Exemplo: wget -O "$VIDEO_TOOLS_DIR/vhs_effect.sh" "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/vhs_effect.sh"
 # chmod +x "$VIDEO_TOOLS_DIR/vhs_effect.sh"
 echo "VideoHelpSuite configurado."
 
-# --- 3. Instalação de ComfyUI Manager (altamente recomendado!) ---
+# --- 3. Instalação de ComfyUI Manager  ---
 echo "Instalando ComfyUI Manager..."
 COMFYUI_CUSTOM_NODES_DIR="$COMFYUI_DIR/custom_nodes"
 MANAGER_DIR="$COMFYUI_CUSTOM_NODES_DIR/ComfyUI-Manager"
@@ -97,4 +97,4 @@ mkdir -p "$COMFYUI_CHECKPOINTS_DIR"
 # Exemplo: Waifu Diffusion 2.1 (se for um modelo checkpoint)
 # wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/waifudiffusion_v2_1.safetensors" "https://huggingface.co/hakurei/waifu-diffusion-v1-4/resolve/main/wd-v1-4-anime_vae.safetensors" || echo "Waifu Diffusion model already exists or failed to download."
 
-echo "Provisionamento personalizado concluído."
+echo "personalizado concluído."
