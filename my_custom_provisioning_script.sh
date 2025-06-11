@@ -33,26 +33,28 @@ COMFYUI_DIR="$PERSISTENT_DIR/ComfyUI"
 if [ ! -d "$COMFYUI_DIR" ]; then
     echo "ComfyUI não encontrado em $COMFYUI_DIR. Clonando..."
     git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFYUI_DIR"
+    # Adiciona o diretório do ComfyUI à lista de diretórios seguros do Git
+    git config --global --add safe.directory "$COMFYUI_DIR"
     echo "ComfyUI clonado."
 fi
 
 echo "Forçando atualização do ComfyUI via git pull e pip install..."
 cd "$COMFYUI_DIR"
+# Adiciona o diretório atual (ComfyUI) à lista de diretórios seguros do Git
+git config --global --add safe.directory "$(pwd)"
 git config pull.rebase false
 git pull origin master
 
-# Instalação das dependências PyTorch com CUDA (cu128 - VERIFIQUE SUA VERSÃO CUDA!)
-# Seu log mostra 'pytorch version: 2.5.1+cu121', então cu128 pode estar causando reinstalações.
-# Recomendo usar cu121 para corresponder ao PyTorch 2.5.1 que você já tem.
-echo "Instalando PyTorch com CUDA (cu121 - para corresponder à versão existente)..."
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121 || \
-echo "Aviso: Falha na instalação de PyTorch com cu121. Verifique a compatibilidade CUDA."
+# Instalação das dependências PyTorch com CUDA (cu124 - ajuste de acordo com o log)
+# Seu log mostra 'pytorch version: 2.5.1+cu124', então vamos usar cu124.
+echo "Instalando PyTorch com CUDA (cu124 - ajustado para o log)..."
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 || \
+echo "Aviso: Falha na instalação de PyTorch com cu124. Verifique a compatibilidade CUDA."
 
 echo "Instalando requisitos base do ComfyUI e pacotes adicionais..."
 pip install -r requirements.txt --no-cache-dir --upgrade --force-reinstall
 pip install bitsandbytes>=0.43.0 gguf --upgrade # bitsandbytes e gguf
 
-# REMOVIDO: pip autoremove -y (causa erro 'unknown command')
 echo "Limpeza de dependências: 'pip autoremove' não disponível, pulando."
 
 
@@ -69,16 +71,18 @@ clone_or_update_node() {
     echo "Clonando/Atualizando $NODE_NAME..."
     if [ ! -d "$NODE_NAME" ]; then
         git clone "$NODE_REPO"
-    else
-        cd "$NODE_NAME"
-        git pull
     fi
+    # Adiciona o diretório do custom node à lista de diretórios seguros do Git
+    git config --global --add safe.directory "$COMFYUI_CUSTOM_NODES_DIR/$NODE_NAME"
+
+    cd "$NODE_NAME"
+    git pull # Puxa atualizações, agora que o diretório é "seguro"
     # Instalar requisitos se o custom node tiver um requirements.txt interno
-    if [ -f "$NODE_NAME/requirements.txt" ]; then
+    if [ -f "requirements.txt" ]; then
         echo "Instalando requisitos para $NODE_NAME..."
-        pip install -r "$NODE_NAME/requirements.txt" --no-cache-dir
+        pip install -r requirements.txt --no-cache-dir
     fi
-    cd "$COMFYUI_CUSTOM_NODES_DIR" # Volta para custom_nodes após cada operação
+    cd .. # Volta para custom_nodes
 }
 
 clone_or_update_node https://github.com/ltdrdata/ComfyUI-Manager.git
@@ -99,6 +103,8 @@ SONIC_DIR="$PERSISTENT_DIR/ComfyUI_Sonic"
 if [ ! -d "$SONIC_DIR" ]; then
     git clone --recursive https://github.com/smthemex/ComfyUI_Sonic.git "$SONIC_DIR" # --recursive para submodules
 fi
+# Adiciona o diretório do Sonic à lista de diretórios seguros do Git
+git config --global --add safe.directory "$SONIC_DIR"
 cd "$SONIC_DIR"
 pip install -r requirements.txt --no-cache-dir
 
@@ -159,6 +165,8 @@ mkdir -p "$VIDEO_HELPER_SUITE_DIR"
 if [ ! -d "$VIDEO_HELPER_SUITE_DIR" ]; then
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$VIDEO_HELPER_SUITE_DIR"
 fi
+# Adiciona o diretório do VideoHelperSuite à lista de diretórios seguros do Git
+git config --global --add safe.directory "$VIDEO_HELPER_SUITE_DIR"
 cd "$VIDEO_HELPER_SUITE_DIR"
 pip install -r requirements.txt --no-cache-dir
 echo "VideoHelperSuite configurado."
@@ -176,8 +184,6 @@ wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/sd_xl_base_1.0.safetensors" "https://huggi
 
 # SVD (Stable Video Diffusion) - Image-to-Video
 echo "Baixando Stable Video Diffusion SVD_XT_1_1..."
-# O TOKEN_HF precisa ser passado como uma variável de ambiente secreta no Vast.ai.
-# Exemplo no comando vastai create instance: -e TOKEN_HF="hf_SEU_TOKEN_DE_LEITURA"
 if [ -z "$TOKEN_HF" ]; then
     echo "AVISO: Variável de ambiente TOKEN_HF não definida. Não será possível baixar modelos Hugging Face privados ou com Gated Access."
 else
