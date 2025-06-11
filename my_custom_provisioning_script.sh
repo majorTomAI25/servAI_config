@@ -40,10 +40,10 @@ cd "$COMFYUI_DIR"
 git config pull.rebase false
 git pull origin master # Garante que puxa da branch master, que é a mais atual
 
-# Instalação das dependências PyTorch com CUDA (VERIFIQUE SUA VERSÃO CUDA: cu124 ou cu118)
-echo "Instalando PyTorch com CUDA (cu124 - ajuste se sua GPU for cu118)..."
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 || \
-echo "Aviso: Falha na instalação de PyTorch com cu124. Verifique a compatibilidade CUDA."
+# Instalação das dependências PyTorch com CUDA (VERIFIQUE SUA VERSÃO CUDA: cu124 ou cu128)
+echo "Instalando PyTorch com CUDA (cu128 - ajuste se sua GPU for cu124)..."
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu128 || \
+echo "Aviso: Falha na instalação de PyTorch com cu128. Verifique a compatibilidade CUDA."
 
 echo "Instalando requisitos base do ComfyUI e pacotes adicionais..."
 pip install -r requirements.txt --no-cache-dir --upgrade --force-reinstall
