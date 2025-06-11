@@ -7,7 +7,7 @@ cd "$PERSISTENT_DIR"
 # Causa o script a sair em caso de falha de qualquer comando.
 set -eo pipefail
 
-echo "Iniciando provisionamento personalizado para Vast.ai (versão final)..."
+echo "Iniciando provisionamento personalizado para Vast.ai (versão FINAL)..."
 
 # --- Ativação do Ambiente Python (Prioriza venv, depois Conda) ---
 echo "Tentando ativar ambiente Python..."
@@ -33,20 +33,19 @@ COMFYUI_DIR="$PERSISTENT_DIR/ComfyUI"
 if [ ! -d "$COMFYUI_DIR" ]; then
     echo "ComfyUI não encontrado em $COMFYUI_DIR. Clonando..."
     git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFYUI_DIR"
-    # Adiciona o diretório do ComfyUI à lista de diretórios seguros do Git
+    # Adiciona o diretório do ComfyUI à lista de diretórios seguros do Git IMEDIATAMENTE APÓS O CLONE
     git config --global --add safe.directory "$COMFYUI_DIR"
     echo "ComfyUI clonado."
 fi
 
 echo "Forçando atualização do ComfyUI via git pull e pip install..."
 cd "$COMFYUI_DIR"
-# Adiciona o diretório atual (ComfyUI) à lista de diretórios seguros do Git
+# Adiciona o diretório atual (ComfyUI) à lista de diretórios seguros do Git antes do pull
 git config --global --add safe.directory "$(pwd)"
 git config pull.rebase false
 git pull origin master
 
-# Instalação das dependências PyTorch com CUDA (cu124 - ajuste de acordo com o log)
-# Seu log mostra 'pytorch version: 2.5.1+cu124', então vamos usar cu124.
+# Instalação das dependências PyTorch com CUDA (usar cu124 conforme log)
 echo "Instalando PyTorch com CUDA (cu124 - ajustado para o log)..."
 pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 || \
 echo "Aviso: Falha na instalação de PyTorch com cu124. Verifique a compatibilidade CUDA."
@@ -72,7 +71,7 @@ clone_or_update_node() {
     if [ ! -d "$NODE_NAME" ]; then
         git clone "$NODE_REPO"
     fi
-    # Adiciona o diretório do custom node à lista de diretórios seguros do Git
+    # Adiciona o diretório do custom node à lista de diretórios seguros do Git IMEDIATAMENTE APÓS O CLONE
     git config --global --add safe.directory "$COMFYUI_CUSTOM_NODES_DIR/$NODE_NAME"
 
     cd "$NODE_NAME"
@@ -122,8 +121,8 @@ gdown --id 13Hpfi-cBvlmNvTv6W4Oa7agWyzmvmofB4 -O "$COMFYUI_DIR/models/sonic/yolo
 # --- Baixar Modelos Whisper (para transcrição) ---
 WHISPER_CACHE_DIR="$PERSISTENT_DIR/.cache/whisper"
 echo "Limpando cache de modelos Whisper em $WHISPER_CACHE_DIR..."
-rm -rf "$WHISPER_CACHE_DIR" # Remove o diretório inteiro
-mkdir -p "$WHISPER_CACHE_DIR" # Recria o diretório
+rm -rf "$WHISPER_CACHE_DIR"
+mkdir -p "$WHISPER_CACHE_DIR"
 
 export HF_HOME="$PERSISTENT_DIR/.cache/huggingface"
 mkdir -p "$HF_HOME"
@@ -180,7 +179,7 @@ mkdir -p "$COMFYUI_SVD_DIR"
 
 # Stable Diffusion XL Base (para Text-to-Video e Image-to-Image/Video)
 echo "Baixando Stable Diffusion XL Base..."
-wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/sd_xl_base_1.0.safetensors" "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors" || echo "SDXL Base model already exists or falhou ao baixar."
+wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/sd_xl_base_1.0.safetensors" "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors" || echo "SDXL Base model already exists ou falhou ao baixar."
 
 # SVD (Stable Video Diffusion) - Image-to-Video
 echo "Baixando Stable Video Diffusion SVD_XT_1_1..."
