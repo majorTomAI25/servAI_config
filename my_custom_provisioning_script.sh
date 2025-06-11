@@ -1,16 +1,19 @@
 #!/bin/bash
 
-echo "Iniciando script de provisionamento personalizado..."
+# Define o diretório persistente para Vast.ai
+PERSISTENT_DIR="/workspace"
+cd "$PERSISTENT_DIR"
 
-cd /workspace
+# Causa o script a sair em caso de falha de qualquer comando
+set -eo pipefail
+
+echo "Iniciando provisionamento personalizado para Vast.ai (adaptado do Kaggle)..."
 
 # --- 1. Verificação e Ativação do Ambiente Python (Crucial!) ---
-# A imagem Vast.ai/comfy geralmente usa Conda.
-# tentar detectar o ambiente ComfyUI corretamente.
-
+# Tenta detectar e ativar o ambiente Conda.
 CONDA_BASE_PATH=$(conda info --base 2>/dev/null)
 if [ -n "$CONDA_BASE_PATH" ]; then
-    source "$CONDA_BASE_PATH"/etc/profile.d/conda.sh # Importa as funções do conda
+    source "$CONDA_BASE_PATH"/etc/profile.d/conda.sh
     echo "Conda base path: $CONDA_BASE_PATH"
     if conda activate comfy; then
         echo "Ambiente 'comfy' ativado."
@@ -24,7 +27,7 @@ else
 fi
 
 # Verifica se o ComfyUI existe. Se não, clona.
-COMFYUI_DIR="/workspace/ComfyUI"
+COMFYUI_DIR="$PERSISTENT_DIR/ComfyUI"
 if [ ! -d "$COMFYUI_DIR" ]; then
     echo "ComfyUI não encontrado em $COMFYUI_DIR. Clonando..."
     git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFYUI_DIR"
@@ -34,67 +37,215 @@ fi
 # **FORÇAR ATUALIZAÇÃO DO COMFYUI AQUI**
 echo "Forçando atualização do ComfyUI via git pull e pip install..."
 cd "$COMFYUI_DIR"
-git config pull.rebase false # Evita problemas de rebase em caso de conflitos
+git config pull.rebase false
 git pull origin master # Garante que puxa da branch master, que é a mais atual
-# Força a reinstalação de todas as dependências e atualiza as existentes
-pip install -r requirements.txt --no-cache-dir --upgrade --force-reinstall
-pip install xformers --upgrade # Garante que xformers esteja atualizado
-echo "ComfyUI backend e dependências forçadas."
 
-# **LIMPEZA DE DEPENDÊNCIAS ANTIGAS**
+# Instalação das dependências PyTorch com CUDA (VERIFIQUE SUA VERSÃO CUDA: cu124 ou cu118)
+echo "Instalando PyTorch com CUDA (cu124 - ajuste se sua GPU for cu118)..."
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 || \
+echo "Aviso: Falha na instalação de PyTorch com cu124. Verifique a compatibilidade CUDA."
+
+echo "Instalando requisitos base do ComfyUI e pacotes adicionais..."
+pip install -r requirements.txt --no-cache-dir --upgrade --force-reinstall
+pip install bitsandbytes>=0.43.0 gguf --upgrade # bitsandbytes e gguf
+
+# Remove dependências Python não utilizadas
 echo "Removendo dependências Python não utilizadas..."
-pip autoremove -y # Remove pacotes que não são mais necessários por nenhum pacote instalado
+pip autoremove -y
 echo "Limpeza de dependências concluída."
 
-
-# --- 2. Instalação de Ferramentas Adicionais  ---
-
-# 2.1. Wav2Lip (para Lip Sync)
-echo "Instalando Wav2Lip..."
-WAV2LIP_DIR="/workspace/Wav2Lip"
-if [ ! -d "$WAV2LIP_DIR" ]; then
-    git clone https://github.com/justinjohn0306/Wav2Lip-GFPGAN.git "$WAV2LIP_DIR"
-fi
-cd "$WAV2LIP_DIR"
-pip install -r requirements.txt --no-cache-dir
-# Baixar o modelo pré-treinado do Wav2Lip
-mkdir -p models
-wget -nc -O models/wav2lip_gan.pth "https://github.com/justinjohn0306/Wav2Lip-GFPGAN/releases/download/v1.0/wav2lip_gan.pth" || echo "Wav2Lip model already exists or failed to download."
-echo "Wav2Lip instalado."
-
-# 2.2. Sonic (assumindo bibliotecas Python para áudio)
-echo "Instalando bibliotecas Sonic (processamento de áudio)..."
-pip install pydub librosa SpeechRecognition # Adicione outras que precisar
-echo "Bibliotecas Sonic instaladas."
-
-# 2.3. VideoHelpSuite (Ferramentas de Vídeo - FFmpeg scripts)
-echo "Configurando VideoHelpSuite..."
-VIDEO_TOOLS_DIR="/workspace/video_help_suite"
-mkdir -p "$VIDEO_TOOLS_DIR"
-# copiar seus scripts personalizados para dentro de $VIDEO_TOOLS_DIR.
-# Exemplo: wget -O "$VIDEO_TOOLS_DIR/vhs_effect.sh" "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/vhs_effect.sh"
-# chmod +x "$VIDEO_TOOLS_DIR/vhs_effect.sh"
-echo "VideoHelpSuite configurado."
-
-# --- 3. Instalação de ComfyUI Manager  ---
-echo "Instalando ComfyUI Manager..."
+# --- 2. Instalação de CUSTOM NODES (do Template Kaggle) ---
+echo "Instalando Custom Nodes para ComfyUI..."
 COMFYUI_CUSTOM_NODES_DIR="$COMFYUI_DIR/custom_nodes"
-MANAGER_DIR="$COMFYUI_CUSTOM_NODES_DIR/ComfyUI-Manager"
 mkdir -p "$COMFYUI_CUSTOM_NODES_DIR"
-if [ ! -d "$MANAGER_DIR" ]; then
-    git clone https://github.com/ltdrdata/ComfyUI-Manager.git "$MANAGER_DIR"
+cd "$COMFYUI_CUSTOM_NODES_DIR"
+
+echo "Clonando ComfyUI-Manager..."
+if [ ! -d "ComfyUI-Manager" ]; then
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git
+    cd ComfyUI-Manager
+    pip install -r requirements.txt --no-cache-dir
+    cd ..
+else
+    echo "ComfyUI-Manager já existe, atualizando..."
+    cd ComfyUI-Manager
+    git pull
+    pip install -r requirements.txt --no-cache-dir
+    cd ..
 fi
-cd "$MANAGER_DIR"
+
+echo "Clonando cg-use-everywhere..."
+if [ ! -d "cg-use-everywhere" ]; then
+    git clone https://github.com/chrisgoringe/cg-use-everywhere.git
+fi
+
+echo "Clonando ComfyUI-Custom-Scripts..."
+if [ ! -d "ComfyUI-Custom-Scripts" ]; then
+    git clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git
+fi
+
+echo "Clonando was-node-suite-comfyui..."
+if [ ! -d "was-node-suite-comfyui" ]; then
+    git clone https://github.com/WASasquatch/was-node-suite-comfyui.git
+fi
+
+echo "Clonando rgthree-comfy..."
+if [ ! -d "rgthree-comfy" ]; then
+    git clone https://github.com/rgthree/rgthree-comfy.git
+fi
+
+echo "Clonando ComfyUI-GGUF..."
+if [ ! -d "ComfyUI-GGUF" ]; then
+    git clone https://github.com/city96/ComfyUI-GGUF
+fi
+
+echo "Clonando ComfyUI-Crystools..."
+if [ ! -d "ComfyUI-Crystools" ]; then
+    git clone https://github.com/crystian/ComfyUI-Crystools.git
+    cd ComfyUI-Crystools
+    pip install -r requirements.txt --no-cache-dir
+    cd ..
+else
+    echo "ComfyUI-Crystools já existe, atualizando..."
+    cd ComfyUI-Crystools
+    git pull
+    pip install -r requirements.txt --no-cache-dir
+    cd ..
+fi
+
+echo "Clonando ComfyUI-KJNodes..."
+if [ ! -d "ComfyUI-KJNodes" ]; then
+    git clone https://github.com/kijai/ComfyUI-KJNodes.git
+fi
+
+echo "Clonando comfyui-workspace-manager..."
+if [ ! -d "comfyui-workspace-manager" ]; then
+    git clone https://github.com/11cafe/comfyui-workspace-manager.git
+fi
+
+# Instalar requisitos de custom_nodes que possam ter um requirements.txt em custom_nodes (se existir)
+
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt --no-cache-dir
+fi
+echo "Custom Nodes instalados e atualizados."
+
+# --- 3. Instalação e Configuração do Sonic (ComfyUI_Sonic) ---
+echo "Instalando ComfyUI_Sonic e baixando modelos necessários..."
+SONIC_DIR="$PERSISTENT_DIR/ComfyUI_Sonic"
+if [ ! -d "$SONIC_DIR" ]; then
+    git clone --recursive https://github.com/smthemex/ComfyUI_Sonic.git "$SONIC_DIR" # --recursive para submodules
+fi
+cd "$SONIC_DIR"
 pip install -r requirements.txt --no-cache-dir
-echo "ComfyUI Manager instalado. Reinicie o ComfyUI para vê-lo."
 
-# --- 4. Baixar Modelos Essenciais (SDXL ou outros de sua escolha) ---
-echo "Baixando modelos essenciais..."
+# Instalação do FFmpeg (se não estiver na imagem base)
+# Assumimos que a imagem Vast.ai/comfy já tem ffmpeg. Se não, adicione:
+# echo "Verificando e instalando FFmpeg..."
+# sudo apt-get update && sudo apt-get install -y ffmpeg
+
+# --- Baixar Modelo UNET do Google Drive para Sonic ---
+echo "Instalando gdown para download de arquivos do Google Drive..."
+pip install gdown
+mkdir -p "$COMFYUI_DIR/models/sonic" # Cria a pasta models/sonic dentro do ComfyUI
+echo "Baixando unet.pth para ComfyUI/models/sonic..."
+gdown --id 1mjIqU-c5q3qMI74XZd3UrkZek0IDTUUh -O "$COMFYUI_DIR/models/sonic/unet.pth" || echo "unet.pth já existe ou falhou ao baixar."
+
+# --- Baixar Outros Arquivos do Google Drive para Sonic ---
+# Certifique-se de que esses IDs e nomes de arquivo estão corretos e que as pastas existem
+# Exemplo: audio2token.pth, audio2bucket.pth, yoloface_v5m.pt
+echo "Baixando arquivos adicionais para ComfyUI/models/sonic..."
+gdown --id ID_AUDIO2TOKEN -O "$COMFYUI_DIR/models/sonic/audio2token.pth" || echo "audio2token.pth já existe ou falhou ao baixar."
+gdown --id ID_AUDIO2BUCKET -O "$COMFYUI_DIR/models/sonic/audio2bucket.pth" || echo "audio2bucket.pth já existe ou falhou ao baixar."
+gdown --id ID_YOLOFACE_V5M -O "$COMFYUI_DIR/models/sonic/yoloface_v5m.pt" || echo "yoloface_v5m.pt já existe ou falhou ao baixar."
+
+# --- Baixar Modelos Whisper (para transcrição) ---
+WHISPER_CACHE_DIR="$PERSISTENT_DIR/.cache/whisper"
+echo "Limpando cache de modelos Whisper em $WHISPER_CACHE_DIR..."
+rm -rf "$WHISPER_CACHE_DIR" # Remove o diretório inteiro
+mkdir -p "$WHISPER_CACHE_DIR" # Recria o diretório
+
+export HF_HOME="$PERSISTENT_DIR/.cache/huggingface" # Garante que Hugging Face baixe para diretório persistente
+mkdir -p "$HF_HOME"
+
+echo "Baixando modelo OpenAI Whisper 'tiny.en' (forçando download)..."
+pip install git+https://github.com/openai/whisper.git # Instala a biblioteca Whisper do GitHub
+python -c "import whisper; print('Downloading Whisper tiny.en model...'); whisper.load_model('tiny.en'); print('Whisper tiny.en model downloaded successfully.');" 2>&1 | tee "$PERSISTENT_DIR/whisper_download_log.txt"
+
+WHISPER_MODEL_PATH="$WHISPER_CACHE_DIR/tiny.en.pt"
+if [ -f "$WHISPER_MODEL_PATH" ] && [ -s "$WHISPER_MODEL_PATH" ]; then
+    echo "Verificação: Modelo Whisper tiny.en encontrado e não está vazio em $WHISPER_MODEL_PATH."
+    file "$WHISPER_MODEL_PATH"
+else
+    echo "ATENÇÃO: Modelo Whisper tiny.en NÃO encontrado ou está vazio em $WHISPER_MODEL_PATH. O download pode ter falhado."
+    echo "Verifique o log de download em $PERSISTENT_DIR/whisper_download_log.txt para mais detalhes."
+fi
+
+# --- RIFE (flownet.pkl) ---
+RIFE_DIR="$COMFYUI_DIR/models/RIFE"
+mkdir -p "$RIFE_DIR"
+echo "Baixando flownet.pkl para ComfyUI/models/RIFE..."
+gdown --id ID_FLOWNET_PKL -O "$RIFE_DIR/flownet.pkl" || echo "flownet.pkl já existe ou falhou ao baixar."
+
+# --- Whisper-tiny (diretório com arquivos) ---
+WHISPER_TINY_MODEL_DIR="$COMFYUI_DIR/models/whisper-tiny" # Cria a pasta dentro do ComfyUI/models
+mkdir -p "$WHISPER_TINY_MODEL_DIR"
+echo "Baixando arquivos para ComfyUI/models/whisper-tiny..."
+gdown --id ID_WHISPER_TINY_PREPROCESSOR_CONFIG -O "$WHISPER_TINY_MODEL_DIR/preprocessor_config.json" || echo "preprocessor_config.json já existe ou falhou."
+gdown --id ID_WHISPER_TINY_MODEL_SAFETENSORS -O "$WHISPER_TINY_MODEL_DIR/model.safetensors" || echo "model.safetensors já existe ou falhou."
+gdown --id ID_WHISPER_TINY_CONFIG -O "$WHISPER_TINY_MODEL_DIR/config.json" || echo "config.json já existe ou falhou."
+
+echo "ComfyUI_Sonic e modelos necessários instalados."
+
+# --- 4. Instalação do VideoHelperSuite (VHS com vídeo combine) ---
+echo "Configurando VideoHelperSuite..."
+VIDEO_HELPER_SUITE_DIR="$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite" # É um Custom Node
+mkdir -p "$VIDEO_HELPER_SUITE_DIR"
+if [ ! -d "$VIDEO_HELPER_SUITE_DIR" ]; then
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$VIDEO_HELPER_SUITE_DIR"
+fi
+cd "$VIDEO_HELPER_SUITE_DIR"
+pip install -r requirements.txt --no-cache-dir
+echo "VideoHelperSuite configurado."
+
+# --- 5. Baixar Modelos Essenciais (SDXL, SVD, Wan-AI/Wan2.1-T2V-14B) ---
+echo "Baixando modelos essenciais para ComfyUI..."
 COMFYUI_CHECKPOINTS_DIR="$COMFYUI_DIR/models/checkpoints"
+COMFYUI_SVD_DIR="$COMFYUI_DIR/models/svd"
 mkdir -p "$COMFYUI_CHECKPOINTS_DIR"
-# Exemplo: SDXL Base (se você for usar SDXL)
-# wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/sd_xl_base_1.0.safetensors" "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors" || echo "SDXL Base model already exists or failed to download."
-# Exemplo: Waifu Diffusion 2.1 (se for um modelo checkpoint)
-# wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/waifudiffusion_v2_1.safetensors" "https://huggingface.co/hakurei/waifu-diffusion-v1-4/resolve/main/wd-v1-4-anime_vae.safetensors" || echo "Waifu Diffusion model already exists or failed to download."
+mkdir -p "$COMFYUI_SVD_DIR"
 
-echo "personalizado concluído."
+# Stable Diffusion XL Base (para Text-to-Video e Image-to-Image/Video)
+echo "Baixando Stable Diffusion XL Base..."
+wget -nc -O "$COMFYUI_CHECKPOINTS_DIR/sd_xl_base_1.0.safetensors" "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors" || echo "SDXL Base model already exists or failed to download."
+
+# SVD (Stable Video Diffusion) - Image-to-Video
+echo "Baixando Stable Video Diffusion SVD_XT_1_1..."
+# O TOKEN_HF precisa ser passado como uma variável de ambiente secreta no Vast.ai.
+# Exemplo no comando vastai create instance: -e TOKEN_HF="hf_SEU_TOKEN_DE_LEITURA"
+if [ -z "$TOKEN_HF" ]; then
+    echo "AVISO: Variável de ambiente TOKEN_HF não definida. Não será possível baixar modelos Hugging Face privados ou com Gated Access."
+else
+    # SVD_XT_1_1
+    wget -nc --header="Authorization: Bearer $TOKEN_HF" -O "$COMFYUI_SVD_DIR/svd_xt_1_1.safetensors" \
+    "https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt-1-1/resolve/main/svd_xt_1_1.safetensors" || \
+    echo "SVD_XT_1_1 já existe ou download falhou (verifique token/rede)."
+
+    # SVD_XT_Image_Decoder
+    wget -nc --header="Authorization: Bearer $TOKEN_HF" -O "$COMFYUI_SVD_DIR/svd_xt_image_decoder.safetensors" \
+    "https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt/resolve/main/svd_xt_image_decoder.safetensors" || \
+    echo "SVD_XT_Image_Decoder já existe ou download falhou (verifique token/rede)."
+fi
+
+# Wan-AI/Wan2.1-T2V-14B (Text-to-Video específico)
+echo "Baixando modelo Wan-AI/Wan2.1-T2V-14B..."
+WAN_AI_MODEL_URL="https://huggingface.co/Wan-AI/Wan2.1-T2V-14B.safetensors?download=true"
+WAN_AI_MODEL_NAME="Wan2.1-T2V-14B.safetensors"
+WAN_AI_MODEL_PATH="$COMFYUI_DIR/models/unet/$WAN_AI_MODEL_NAME"
+
+mkdir -p "$(dirname "$WAN_AI_MODEL_PATH")"
+wget -nc -O "$WAN_AI_MODEL_PATH" "$WAN_AI_MODEL_URL" || echo "Modelo Wan-AI/Wan2.1-T2V-14B já existe ou falhou ao baixar."
+
+echo "Modelos essenciais instalados."
+
+echo "Provisionamento personalizado concluído."
