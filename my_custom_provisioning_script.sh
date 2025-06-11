@@ -124,7 +124,10 @@ if [ ! -d "comfyui-workspace-manager" ]; then
 fi
 
 # Instalar requisitos de custom_nodes que possam ter um requirements.txt em custom_nodes (se existir)
-
+# Atenção: Esta linha foi movida para o final da seção de custom nodes, como no seu template original Kaggle,
+# mas `pip install -r` só funciona se o requirements.txt estiver no diretório atual.
+# Muitos custom nodes têm seus próprios requirements.txt dentro de seus subdiretórios, que são instalados ao cloná-los e cd para eles.
+# Esta linha é um fallback se houver um requirements.txt genérico em $COMFYUI_CUSTOM_NODES_DIR
 if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt --no-cache-dir
 fi
@@ -155,9 +158,9 @@ gdown --id 1mjIqU-c5q3qMI74XZd3UrkZek0IDTUUh -O "$COMFYUI_DIR/models/sonic/unet.
 # Certifique-se de que esses IDs e nomes de arquivo estão corretos e que as pastas existem
 # Exemplo: audio2token.pth, audio2bucket.pth, yoloface_v5m.pt
 echo "Baixando arquivos adicionais para ComfyUI/models/sonic..."
-gdown --id ID_AUDIO2TOKEN -O "$COMFYUI_DIR/models/sonic/audio2token.pth" || echo "audio2token.pth já existe ou falhou ao baixar."
-gdown --id ID_AUDIO2BUCKET -O "$COMFYUI_DIR/models/sonic/audio2bucket.pth" || echo "audio2bucket.pth já existe ou falhou ao baixar."
-gdown --id ID_YOLOFACE_V5M -O "$COMFYUI_DIR/models/sonic/yoloface_v5m.pt" || echo "yoloface_v5m.pt já existe ou falhou ao baixar."
+gdown --id 1vUY-b5NMvDA2XsxRZcB3nF3u1trOtK53h -O "$COMFYUI_DIR/models/sonic/audio2token.pth" || echo "audio2token.pth já existe ou falhou ao baixar."
+gdown --id 1RHWasbgUWZg-mFaQhDJtF1KhpUSecC5d  -O "$COMFYUI_DIR/models/sonic/audio2bucket.pth" || echo "audio2bucket.pth já existe ou falhou ao baixar."
+gdown --id 13Hpfi-cBvlmNvTv6W4Oa7agWyzmvmofB4 -O "$COMFYUI_DIR/models/sonic/yoloface_v5m.pt" || echo "yoloface_v5m.pt já existe ou falhou ao baixar."
 
 # --- Baixar Modelos Whisper (para transcrição) ---
 WHISPER_CACHE_DIR="$PERSISTENT_DIR/.cache/whisper"
@@ -185,15 +188,45 @@ fi
 RIFE_DIR="$COMFYUI_DIR/models/RIFE"
 mkdir -p "$RIFE_DIR"
 echo "Baixando flownet.pkl para ComfyUI/models/RIFE..."
-gdown --id ID_FLOWNET_PKL -O "$RIFE_DIR/flownet.pkl" || echo "flownet.pkl já existe ou falhou ao baixar."
+gdown --id 1UnSd-s5DhPRZu4C23I4uOmmahH0J3Dkwl -O "$RIFE_DIR/flownet.pkl" || echo "flownet.pkl já existe ou falhou ao baixar."
 
-# --- Whisper-tiny (diretório com arquivos) ---
-WHISPER_TINY_MODEL_DIR="$COMFYUI_DIR/models/whisper-tiny" # Cria a pasta dentro do ComfyUI/models
-mkdir -p "$WHISPER_TINY_MODEL_DIR"
-echo "Baixando arquivos para ComfyUI/models/whisper-tiny..."
-gdown --id ID_WHISPER_TINY_PREPROCESSOR_CONFIG -O "$WHISPER_TINY_MODEL_DIR/preprocessor_config.json" || echo "preprocessor_config.json já existe ou falhou."
-gdown --id ID_WHISPER_TINY_MODEL_SAFETENSORS -O "$WHISPER_TINY_MODEL_DIR/model.safetensors" || echo "model.safetensors já existe ou falhou."
-gdown --id ID_WHISPER_TINY_CONFIG -O "$WHISPER_TINY_MODEL_DIR/config.json" || echo "config.json já existe ou falhou."
+# --- Baixar Modelos Whisper (para transcrição) ---
+# Limpa qualquer cache de modelos Whisper existente antes de tentar baixar novamente.
+# O diretório de cache padrão do Whisper é ~/.cache/whisper
+WHISPER_CACHE_DIR="$PERSISTENT_DIR/.cache/whisper" # Assumindo ~/.cache é mapeado para PERSISTENT_DIR/.cache
+echo "Limpando cache de modelos Whisper em $WHISPER_CACHE_DIR..."
+rm -rf "$WHISPER_CACHE_DIR" # Remove o diretório inteiro
+mkdir -p "$WHISPER_CACHE_DIR" # Recria o diretório
+
+# Define a variável de ambiente HF_HOME para garantir que os modelos sejam baixados para o diretório persistente
+export HF_HOME="$PERSISTENT_DIR/.cache/huggingface"
+mkdir -p "$HF_HOME"
+
+echo "Baixando modelo OpenAI Whisper 'tiny.en' (forçando download via biblioteca)..."
+pip install git+https://github.com/openai/whisper.git # Instala a biblioteca Whisper do GitHub
+python -c "import whisper; print('Downloading Whisper tiny.en model...'); whisper.load_model('tiny.en')" 2>&1 | tee "$PERSISTENT_DIR/whisper_download_log.txt"
+
+WHISPER_MODEL_PATH="$WHISPER_CACHE_DIR/tiny.en.pt"
+if [ -f "$WHISPER_MODEL_PATH" ] && [ -s "$WHISPER_MODEL_PATH" ]; then
+    echo "Verificação: Modelo Whisper tiny.en encontrado e não está vazio em $WHISPER_MODEL_PATH."
+    file "$WHISPER_MODEL_PATH"
+else
+    echo "ATENÇÃO: Modelo Whisper tiny.en NÃO encontrado ou está vazio em $WHISPER_MODEL_PATH. O download pode ter falhado."
+    echo "Verifique o log de download em $PERSISTENT_DIR/whisper_download_log.txt para mais detalhes."
+fi
+
+# --- **NOVA SEÇÃO: Whisper-tiny (do Hugging Face) ---
+# Esta seção foi atualizada para puxar o modelo diretamente via a biblioteca transformers,
+# que é a forma recomendada para modelos do Hugging Face.
+echo "Baixando modelo Whisper-tiny (openai/whisper-tiny) do Hugging Face..."
+WHISPER_TINY_HF_MODEL_NAME="openai/whisper-tiny"
+# A biblioteca 'transformers' (que será instalada pelas dependências do ComfyUI_Sonic ou já existe)
+# gerencia o download. Basta instanciar o modelo.
+python -c "from transformers import WhisperProcessor, WhisperForConditionalGeneration; \
+    processor = WhisperProcessor.from_pretrained('$WHISPER_TINY_HF_MODEL_NAME'); \
+    model = WhisperForConditionalGeneration.from_pretrained('$WHISPER_TINY_HF_MODEL_NAME'); \
+    print(f'Modelo $WHISPER_TINY_HF_MODEL_NAME baixado e carregado com sucesso.')" 2>&1 | tee "$PERSISTENT_DIR/whisper_tiny_hf_download_log.txt"
+
 
 echo "ComfyUI_Sonic e modelos necessários instalados."
 
