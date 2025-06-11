@@ -5,13 +5,11 @@ PERSISTENT_DIR="/workspace"
 cd "$PERSISTENT_DIR"
 
 # Causa o script a sair em caso de falha de qualquer comando.
-# Isso é crucial para depuração: se algo der errado, o script para.
 set -eo pipefail
 
 echo "Iniciando provisionamento personalizado para Vast.ai (versão final)..."
 
 # --- Ativação do Ambiente Python (Prioriza venv, depois Conda) ---
-# A imagem vastai/comfy pode usar venv ou Conda. Vamos tentar ativar o correto.
 echo "Tentando ativar ambiente Python..."
 if [ -f "/venv/main/bin/activate" ]; then
     . /venv/main/bin/activate
@@ -24,7 +22,7 @@ elif CONDA_BASE_PATH=$(conda info --base 2>/dev/null); then
     elif conda activate base; then
         echo "Ambiente 'base' ativado."
     else
-        echo "Nenhum ambiente Conda detectado ou ativado."
+        echo "Nenhum ambiente Conda detectado ou ativado. Usando ambiente de sistema para pip."
     fi
 else
     echo "Nenhum ambiente venv ou Conda detectado. Usando ambiente de sistema para pip."
@@ -44,17 +42,19 @@ git config pull.rebase false
 git pull origin master
 
 # Instalação das dependências PyTorch com CUDA (cu128 - VERIFIQUE SUA VERSÃO CUDA!)
-echo "Instalando PyTorch com CUDA (cu128 - ajuste se sua GPU/template for diferente, ex: cu124 ou cu118)..."
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu128 || \
-echo "Aviso: Falha na instalação de PyTorch com cu128. Verifique a compatibilidade CUDA."
+# Seu log mostra 'pytorch version: 2.5.1+cu121', então cu128 pode estar causando reinstalações.
+# Recomendo usar cu121 para corresponder ao PyTorch 2.5.1 que você já tem.
+echo "Instalando PyTorch com CUDA (cu121 - para corresponder à versão existente)..."
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121 || \
+echo "Aviso: Falha na instalação de PyTorch com cu121. Verifique a compatibilidade CUDA."
 
 echo "Instalando requisitos base do ComfyUI e pacotes adicionais..."
 pip install -r requirements.txt --no-cache-dir --upgrade --force-reinstall
 pip install bitsandbytes>=0.43.0 gguf --upgrade # bitsandbytes e gguf
 
-echo "Removendo dependências Python não utilizadas..."
-pip autoremove -y
-echo "Limpeza de dependências concluída."
+# REMOVIDO: pip autoremove -y (causa erro 'unknown command')
+echo "Limpeza de dependências: 'pip autoremove' não disponível, pulando."
+
 
 # --- 2. Instalação de CUSTOM NODES (do Template Kaggle) ---
 echo "Instalando Custom Nodes para ComfyUI..."
@@ -72,13 +72,13 @@ clone_or_update_node() {
     else
         cd "$NODE_NAME"
         git pull
-        cd ..
     fi
     # Instalar requisitos se o custom node tiver um requirements.txt interno
     if [ -f "$NODE_NAME/requirements.txt" ]; then
         echo "Instalando requisitos para $NODE_NAME..."
         pip install -r "$NODE_NAME/requirements.txt" --no-cache-dir
     fi
+    cd "$COMFYUI_CUSTOM_NODES_DIR" # Volta para custom_nodes após cada operação
 }
 
 clone_or_update_node https://github.com/ltdrdata/ComfyUI-Manager.git
@@ -116,8 +116,8 @@ gdown --id 13Hpfi-cBvlmNvTv6W4Oa7agWyzmvmofB4 -O "$COMFYUI_DIR/models/sonic/yolo
 # --- Baixar Modelos Whisper (para transcrição) ---
 WHISPER_CACHE_DIR="$PERSISTENT_DIR/.cache/whisper"
 echo "Limpando cache de modelos Whisper em $WHISPER_CACHE_DIR..."
-rm -rf "$WHISPER_CACHE_DIR"
-mkdir -p "$WHISPER_CACHE_DIR"
+rm -rf "$WHISPER_CACHE_DIR" # Remove o diretório inteiro
+mkdir -p "$WHISPER_CACHE_DIR" # Recria o diretório
 
 export HF_HOME="$PERSISTENT_DIR/.cache/huggingface"
 mkdir -p "$HF_HOME"
