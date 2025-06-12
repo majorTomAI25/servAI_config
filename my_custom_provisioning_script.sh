@@ -86,41 +86,51 @@ mkdir -p "$RIFE_DIR"
 echo "Baixando flownet.pkl para $RIFE_DIR..."
 gdown --id 1UnSd-s5DhPRZu4C23I4uOmmahH0J3Dkwl -O "$RIFE_DIR/flownet.pkl" || echo "flownet.pkl já existe ou falhou ao baixar."
 
-# --- Baixar Modelos Whisper (para transcrição) ---
-# Os modelos Whisper (tiny.en, base.en, etc.) são gerenciados pela biblioteca openai-whisper
-# e baixados para ~/.cache/whisper ou $HF_HOME.
-# O ComfyUI_Sonic pode precisar de configuração ou links simbólicos para encontrar esses modelos
-# se eles não estiverem no local que ele espera.
-WHISPER_CACHE_DIR="$PERSISTENT_DIR/.cache/whisper"
-echo "Limpando cache de modelos Whisper em $WHISPER_CACHE_DIR..."
-rm -rf "$WHISPER_CACHE_DIR"
-mkdir -p "$WHISPER_CACHE_DIR"
+# --- Whisper-tiny (para transcrição de áudio) ---
+WHISPER_DIR="$COMFYUI_DIR/models/sonic/whisper-tiny"
+mkdir -p "$WHISPER_DIR"
 
-export HF_HOME="$PERSISTENT_DIR/.cache/huggingface" # Garante que Hugging Face baixe para diretório persistente
-mkdir -p "$HF_HOME"
+echo "Configurando modelo Whisper-tiny em $WHISPER_DIR..."
 
-echo "Baixando modelo OpenAI Whisper 'tiny.en' (forçando download via biblioteca)..."
-pip install git+https://github.com/openai/whisper.git # Instala a biblioteca Whisper do GitHub
-python -c "import whisper; print('Downloading Whisper tiny.en model...'); whisper.load_model('tiny.en'); print('Whisper tiny.en model downloaded successfully.');" 2>&1 | tee "$PERSISTENT_DIR/whisper_download_log.txt"
+# Arquivos principais do Whisper-tiny
+declare -A WHISPER_FILES=(
+    ["config.json"]="https://huggingface.co/openai/whisper-tiny/resolve/main/config.json"
+    ["model.safetensors"]="https://huggingface.co/openai/whisper-tiny/resolve/main/model.safetensors"
+    ["preprocessor_config.json"]="https://huggingface.co/openai/whisper-tiny/resolve/main/preprocessor_config.json"
+)
 
-WHISPER_MODEL_PATH="$WHISPER_CACHE_DIR/tiny.en.pt"
-if [ -f "$WHISPER_MODEL_PATH" ] && [ -s "$WHISPER_MODEL_PATH" ]; then
-    echo "Verificação: Modelo Whisper tiny.en encontrado e não está vazio em $WHISPER_MODEL_PATH."
-    file "$WHISPER_MODEL_PATH"
-else
-    echo "ATENÇÃO: Modelo Whisper tiny.en NÃO encontrado ou está vazio em $WHISPER_MODEL_PATH. O download pode ter falhado."
-    echo "Verifique o log de download em $PERSISTENT_DIR/whisper_download_log.txt para mais detalhes."
-fi
+# Baixar cada arquivo com verificação
+for file in "${!WHISPER_FILES[@]}"; do
+    if [ ! -f "$WHISPER_DIR/$file" ]; then
+        echo "Baixando $file..."
+        wget -q --show-progress -O "$WHISPER_DIR/$file" "${WHISPER_FILES[$file]}" || {
+            echo "Falha no download de $file"
+            echo "Você pode enviar manualmente via:"
+            echo "1. SFTP para: $WHISPER_DIR/"
+            echo "2. Ou executar:"
+            echo "   scp -P PORTA_SSH $file root@IP_DA_INSTANCIA:$WHISPER_DIR/"
+        }
+    else
+        echo "$file já existe."
+    fi
+done
 
-# --- Baixar Modelo Whisper-tiny (do Hugging Face) ---
-# Este modelo será baixado para $HF_HOME (que está em $PERSISTENT_DIR/.cache/huggingface)
-echo "Baixando modelo Whisper-tiny (openai/whisper-tiny) do Hugging Face via biblioteca transformers..."
-WHISPER_TINY_HF_MODEL_NAME="openai/whisper-tiny"
-pip install transformers # Garante que transformers esteja instalado para este download
-python -c "from transformers import WhisperProcessor, WhisperForConditionalGeneration; \
-    processor = WhisperProcessor.from_pretrained('$WHISPER_TINY_HF_MODEL_NAME'); \
-    model = WhisperForConditionalGeneration.from_pretrained('$WHISPER_TINY_HF_MODEL_NAME'); \
-    print(f'Modelo $WHISPER_TINY_HF_MODEL_NAME baixado e carregado com sucesso.')" 2>&1 | tee "$PERSISTENT_DIR/whisper_tiny_hf_download_log.txt"
+# Verificação final
+required_whisper_files=(
+    "$WHISPER_DIR/config.json"
+    "$WHISPER_DIR/model.safetensors"
+    "$WHISPER_DIR/preprocessor_config.json"
+)
+
+for file in "${required_whisper_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "AVISO: Arquivo essencial faltando - $file"
+        echo "Por favor envie manualmente como indicado acima."
+    else
+        echo "Verificado: $file"
+    fi
+done
+
 
 echo "ComfyUI_Sonic e modelos necessários instalados."
 
