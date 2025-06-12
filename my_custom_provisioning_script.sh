@@ -28,24 +28,6 @@ else
     echo "Nenhum ambiente venv ou Conda detectado. Usando ambiente de sistema para pip."
     
 fi
-echo ">>> Corrigindo conflitos de dependências..."
-
-# 1. Atualizar pip
-pip install --upgrade pip
-
-# 2. Corrigir PyTorch + torchvision
-pip uninstall torch torchvision torchaudio xformers -y
-pip install torch==2.7.1+cu124 torchvision==0.22.1+cu124 torchaudio==2.7.1+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
-
-# 3. Reinstalar xformers compatível
-pip install xformers==0.0.27 --no-deps
-
-# 4. Verificar instalação
-python -c "
-import torch; print(f'PyTorch: {torch.__version__}');
-import torchvision; print(f'torchvision: {torchvision.__version__}');
-import xformers; print(f'xformers: {xformers.__version__}')
-"
 
 # --- Clonar/Atualizar ComfyUI ---
 COMFYUI_DIR="$PERSISTENT_DIR/ComfyUI"
@@ -64,7 +46,10 @@ git pull origin master
 
 # Instalação das dependências PyTorch com CUDA (cu124 - ajustado para o log)
 echo "Instalando PyTorch com CUDA (cu124 - ajustado para o log)..."
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 || \
+
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 
+pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
+
 echo "Aviso: Falha na instalação de PyTorch com cu124. Verifique a compatibilidade CUDA."
 
 echo "Instalando requisitos base do ComfyUI e pacotes adicionais..."
