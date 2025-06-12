@@ -162,7 +162,7 @@ gdown --id 1UnSd-s5DhPRZu4C23I4uOmmahH0J3Dkwl -O "$RIFE_DIR/flownet.pkl" || echo
 # --- Instalação do VideoHelperSuite (VHS com vídeo combine) ---
 # Este é um Custom Node, seu lugar é em custom_nodes.
 echo "Configurando VideoHelperSuite..."
-VIDEO_HELPER_SUITE_DIR="$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite"
+VIDEO_HELPER_SUITE_DIR=""$COMFYUI_DIR/VideoHelperSuite"
 mkdir -p "$VIDEO_HELPER_SUITE_DIR"
 if [ ! -d "$VIDEO_HELPER_SUITE_DIR" ]; then
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$VIDEO_HELPER_SUITE_DIR"
