@@ -17,7 +17,7 @@ conda activate base
 
 # Instale dependências básicas
 echo "🧰 Instalando PyTorch e dependências principais..."
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121 
 pip install -r /workspace/ComfyUI/requirements.txt
 
 # --- Baixe modelos para o Sonic Lip Sync ---
@@ -36,8 +36,8 @@ wget -nc -O "$SONIC_MODEL_DIR/audio2token.pth" \
   "https://huggingface.co/smthemex/Sonic/raw/main/audio2token.pth" 
 
 # RIFE (flownet.pkl) - usado para interpolação de frames
-mkdir -p "/workspace/ComfyUI/models/RIFE"
-RIFE_PATH="/workspace/ComfyUI/models/RIFE/flownet.pkl"
+mkdir -p "/workspace/ComfyUI/models/sonic/RIFE"
+RIFE_PATH="/workspace/ComfyUI/models/sonic/RIFE/flownet.pkl"
 
 if [ ! -f "$RIFE_PATH" ]; then
     echo "🚀 Baixando flownet.pkl (RIFE)..."
@@ -93,8 +93,11 @@ echo "🎬 Baixando modelos SVD..."
 wget -nc -O "$CKPT_DIR/svd_xt_1_1.safetensors" \
   "https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt-1-1/resolve/main/svd_xt_1_1.safetensors" 
 
-wget -nc -O "$CKPT_DIR/svd.safetensors" \
-  "https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt/resolve/main/svd_xt_image_decoder.safetensors" 
+wget -nc -O "$CKPT_DIR/svd_xt.safetensors" \
+  "https://huggingface.co/FrancisRing/StableAnimator/resolve/main/stable-video-diffusion-img2vid-xt/svd_xt.safetensors" 
+
+wget -nc -O "$CKPT_DIR/svd_xt_image_decoder.svd_xt_image_decoder.safetensors" \
+  "https://huggingface.co/FrancisRing/StableAnimator/resolve/main/stable-video-diffusion-img2vid-xt/svd_xt_image_decoder.safetensors" 
 
 
 # Reinicie o ComfyUI
