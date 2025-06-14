@@ -96,8 +96,8 @@ wget -nc -O "$CKPT_DIR/svd_xt_1_1.safetensors" \
 wget -nc -O "$CKPT_DIR/svd_xt.safetensors" \
   "https://huggingface.co/FrancisRing/StableAnimator/resolve/main/stable-video-diffusion-img2vid-xt/svd_xt.safetensors" 
 
-wget -nc -O "$CKPT_DIR/svd_xt_image_decoder.svd_xt_image_decoder.safetensors" \
-  "https://huggingface.co/FrancisRing/StableAnimator/resolve/main/stable-video-diffusion-img2vid-xt/svd_xt_image_decoder.safetensors" 
+#wget -nc -O "$CKPT_DIR/svd_xt_image_decoder.svd_xt_image_decoder.safetensors" \
+#  "https://huggingface.co/FrancisRing/StableAnimator/resolve/main/stable-video-diffusion-img2vid-xt/svd_xt_image_decoder.safetensors
 
 
 # Reinicie o ComfyUI
