@@ -19,8 +19,6 @@ conda activate base
 echo "🧰 Instalando PyTorch e dependências principais..."
 #pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 
 pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-pip install -U packaging wheel ninja setuptools
-pip install --no-build-isolation git+https://github.com/Lightricks/LTX-Video-Q8-Kernels.git
 pip install -r /workspace/ComfyUI/requirements.txt
 
 
